@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clicker Game Prototype</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 50px;
+    }
+    #count {
+      font-size: 2rem;
+      margin: 20px;
+    }
+    #clickButton {
+      font-size: 1.5rem;
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+  </style>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <h1>Clicker Game Prototype</h1>
+  <div id="count">0</div>
+  <button id="clickButton">Click me!</button>
+
+  <script>
+    const socket = io();            // auto‐connect to server
+    const countEl = document.getElementById('count');
+    const button  = document.getElementById('clickButton');
+
+    // When server broadcasts a new count, update the UI
+    socket.on('count updated', newCount => {
+      countEl.textContent = newCount;
+    });
+
+    // When you click, tell the server
+    button.addEventListener('click', () => {
+      socket.emit('click');
+    });
+  </script>
+</body>
+</html>
