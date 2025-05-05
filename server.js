@@ -35,7 +35,7 @@ async function start() {
 	const server = http.createServer(app);
 	const io     = new Server(server);
 
-	i.o.on('connection', socket => {
+	io.on('connection', socket => {
 		console.log(`🟢 ${socket.id} connected`);
 
 		// Send the latest boss state
