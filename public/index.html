@@ -1,70 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Clicker Game Prototype</title>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+	<title>Multiplayer Boss Fight</title>
 	<style>
-		/* Full-screen flex container for centering */
 		body {
-			height: 100vh;
-			margin: 0;
-			display: flex;
-			flex-direction: column;
-			justify-content: center;
-			align-items: center;
-			background: #f5f5f5;
-			font-family: Arial, sans-serif;
+			height: 100vh; margin:0;
+			display:flex; flex-direction:column;
+			justify-content:center; align-items:center;
+			background:#f5f5f5;
+			font-family:Arial,sans-serif;
 		}
-
-		#enemy {
-			cursor: pointer;
-		}
-
-		#enemyName {
-			margin-top: 10px;
-			font-size: 1.5rem;
-			font-weight: bold;
-		}
-
-		#health {
-			margin-top: 5px;
-			font-size: 1.25rem;
-		}
+		#enemy { cursor:pointer; }
+		#enemyName { margin-top:10px; font-size:1.5rem; font-weight:bold; }
+		#health    { margin-top:5px; font-size:1.25rem; }
 	</style>
 </head>
 <body>
-	<!-- Enemy Image -->
-	<img id="enemy" src="/img/enemy-001-large.png" alt="Slug">
+	<img    id="enemy" src="/img/enemy-001-large.png" alt="Boss">
+	<div   id="enemyName">?</div>
+	<div   id="health">0 / 0 HP</div>
 
-	<!-- Enemy Name -->
-	<div id="enemyName">Slug</div>
-
-	<!-- Health Display -->
-	<div id="health">10 / 10 HP</div>
-
+	<script src="/socket.io/socket.io.js"></script>
 	<script>
-		const maxHealth = 10;
-		let currentHealth = maxHealth;
+		const socket = io();
 
-		const healthEl = document.getElementById('health');
-		const enemyEl  = document.getElementById('enemy');
-
-		function updateHealthDisplay() {
-			healthEl.textContent = `${currentHealth} / ${maxHealth} HP`;
-		}
-
-		// Handle clicks on the enemy image
-		enemyEl.addEventListener('click', () => {
-			currentHealth--;
-			if (currentHealth <= 0) {
-				currentHealth = maxHealth;
-			}
-			updateHealthDisplay();
+		// When we get the shared state, render it
+		socket.on('boss state', ({ name, maxHP, currentHP }) => {
+			document.getElementById('enemyName').textContent = name;
+			document.getElementById('health').textContent    =
+				`${currentHP} / ${maxHP} HP`;
 		});
 
-		// Initialize display
-		updateHealthDisplay();
+		// Clicking the image sends a “hit”
+		document.getElementById('enemy').addEventListener('click', () => {
+			socket.emit('hit');
+		});
 	</script>
 </body>
 </html>
