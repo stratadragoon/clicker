@@ -163,8 +163,7 @@ async function start() {
 			}
 
 			// 5) Persist user damage XP and possible unlocks
-			// (existing unlock logic omitted for brevity… assume same as before)
-		\await users.updateOne(
+			await users.updateOne(
 				{ _id: userId },
 				{ $set: {
 					weapons: user.weapons,
