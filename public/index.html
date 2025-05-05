@@ -29,23 +29,22 @@
 	<!-- Load Socket.io client from the same host -->
 	<script src="/socket.io/socket.io.js"></script>
 	<script>
-		const socket = io();
-		console.log('⚡️ Socket.io client initialized');
+		console.log('⚡️ Socket.io client loaded');
+		const socket = io();  // connects to current host
 
 		socket.on('connect', () => {
-		console.log('✅ Connected to server, socket id:', socket.id);
+			console.log('✅ Connected to server, socket id:', socket.id);
 		});
 
 		socket.on('count updated', (newCount) => {
-		console.log('📨 Received count updated:', newCount);
-		document.getElementById('count').textContent = newCount;
+			console.log('📨 Received count updated:', newCount);
+			document.getElementById('count').textContent = newCount;
 		});
 
 		document.getElementById('clickButton').addEventListener('click', () => {
-		console.log('🖱️ Emitting click');
-		socket.emit('click');
+			console.log('🖱️ Emitting click');
+			socket.emit('click');
 		});
 	</script>
-
 </body>
 </html>
