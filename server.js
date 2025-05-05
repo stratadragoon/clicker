@@ -19,7 +19,7 @@ async function start() {
 	const db   = client.db('myClickerApp');
 	const coll = db.collection('bosses');
 
-	// Ensure our boss doc exists
+	// Ensure our boss document exists
 	await coll.updateOne(
 		{ _id: 'slugBoss' },
 		{ $setOnInsert: { name: 'Slug', maxHP: 10, currentHP: 10 } },
@@ -35,7 +35,7 @@ async function start() {
 	const server = http.createServer(app);
 	const io     = new Server(server);
 
-	io.on('connection', socket => {
+	i.o.on('connection', socket => {
 		console.log(`🟢 ${socket.id} connected`);
 
 		// Send the latest boss state
@@ -45,32 +45,46 @@ async function start() {
 
 		// Handle “hit” events
 		socket.on('hit', async () => {
-			// Atomically decrement currentHP, but don’t go below 0
-			const { value } = await coll.findOneAndUpdate(
-				{ _id: 'slugBoss', currentHP: { $gt: 0 } },
-				{ $inc: { currentHP: -1 } },
-				{ returnDocument: 'after' }
-			);
-
-			// If we just killed the boss, reset it
-			if (value.currentHP <= 0) {
-				await coll.updateOne(
+			console.log(`🖱️ Hit from ${socket.id}`);
+			try {
+				// Decrement health by 1
+				const result = await coll.findOneAndUpdate(
 					{ _id: 'slugBoss' },
-					{ $set: { currentHP: value.maxHP } }
+					{ $inc: { currentHP: -1 } },
+					{ returnDocument: 'after' }
 				);
-				value.currentHP = value.maxHP;
-			}
+				let doc = result.value;
+				let { currentHP, maxHP } = doc;
 
-			// Broadcast the new state to everyone
-			io.emit('boss state', value);
+				// If boss is dead or below, reset HP
+				if (currentHP <= 0) {
+					currentHP = maxHP;
+					await coll.updateOne(
+						{ _id: 'slugBoss' },
+						{ $set: { currentHP: maxHP } }
+					);
+				}
+
+				const state = { ...doc, currentHP };
+				console.log(`→ new HP: ${state.currentHP}/${state.maxHP}`);
+				io.emit('boss state', state);
+			} catch (err) {
+				console.error('Hit handler error:', err);
+			}
+		});
+
+		// Handle disconnect
+		socket.on('disconnect', () => {
+			console.log(`🔴 ${socket.id} disconnected`);
 		});
 	});
 
+	// Start server
 	const PORT = process.env.PORT || 3000;
 	server.listen(PORT, () => console.log(`🚀 Listening on ${PORT}`));
 }
 
 start().catch(err => {
-	console.error(err);
+	console.error('Startup error:', err);
 	process.exit(1);
 });
