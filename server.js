@@ -150,11 +150,37 @@ async function start() {
                         p.weapons[w].xp -= wepConfig[w].exp[p.weapons[w].level];
                         p.weapons[w].level++;
                     }
-                    await users.updateOne(
-                        { _id: uid },
-                        { $set: { weapons: p.weapons }}
-                    );
-                    sock.emit('user state', p);
+					// 1) When woodenSword hits Lv3, add stoneSword:
+					if (w === 'woodenSword'
+						&& p.weapons.woodenSword.level >= 3
+						&& !p.unlockedWeapons.includes('stoneSword')
+					) {
+						p.unlockedWeapons.push('stoneSword');
+					}
+
+					// 2) Whenever stoneSword is in unlockedWeapons, add spiderWeb zone:
+					if (p.unlockedWeapons.includes('stoneSword')
+						&& !p.unlockedZones.includes('spiderWeb')
+					) {
+						p.unlockedZones.push('spiderWeb');
+					}
+
+					await users.updateOne(
+						{ _id: uid },
+						{ $set: { weapons: p.weapons }}
+					);
+					// Persist weapons + any newly-unlocked weapons or zones:
+					await users.updateOne(
+						{ _id: uid },
+						{
+							$set: {
+								weapons:          p.weapons,
+								unlockedWeapons:  p.unlockedWeapons,
+								unlockedZones:    p.unlockedZones
+							}
+						}
+					);
+					sock.emit('user state', p);
                 }
             }
 
