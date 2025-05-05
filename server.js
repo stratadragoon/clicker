@@ -38,50 +38,46 @@ async function start() {
 	io.on('connection', socket => {
 		console.log(`🟢 ${socket.id} connected`);
 
-		// Send the latest boss state
+		// Send the latest boss state on connect
 		coll.findOne({ _id: 'slugBoss' })
 			.then(doc => socket.emit('boss state', doc))
-			.catch(console.error);
+			.catch(err => console.error('Error fetching boss state:', err));
 
-		// Handle “hit” events
 		socket.on('hit', async () => {
 			console.log(`🖱️ Hit from ${socket.id}`);
 			try {
-				// Decrement health by 1
-				const result = await coll.findOneAndUpdate(
-					{ _id: 'slugBoss' },
-					{ $inc: { currentHP: -1 } },
-					{ returnDocument: 'after' }
+				// Decrement health by 1 if above zero
+				await coll.updateOne(
+					{ _id: 'slugBoss', currentHP: { $gt: 0 } },
+					{ $inc: { currentHP: -1 } }
 				);
-				let doc = result.value;
-				let { currentHP, maxHP } = doc;
+
+				// Fetch updated state
+				let doc = await coll.findOne({ _id: 'slugBoss' });
 
 				// If boss is dead or below, reset HP
-				if (currentHP <= 0) {
-					currentHP = maxHP;
+				if (doc.currentHP <= 0) {
+					doc.currentHP = doc.maxHP;
 					await coll.updateOne(
 						{ _id: 'slugBoss' },
-						{ $set: { currentHP: maxHP } }
+						{ $set: { currentHP: doc.maxHP } }
 					);
 				}
 
-				const state = { ...doc, currentHP };
-				console.log(`→ new HP: ${state.currentHP}/${state.maxHP}`);
-				io.emit('boss state', state);
+				console.log(`→ new HP: ${doc.currentHP}/${doc.maxHP}`);
+				io.emit('boss state', doc);
 			} catch (err) {
 				console.error('Hit handler error:', err);
 			}
 		});
 
-		// Handle disconnect
 		socket.on('disconnect', () => {
 			console.log(`🔴 ${socket.id} disconnected`);
 		});
 	});
 
-	// Start server
 	const PORT = process.env.PORT || 3000;
-	server.listen(PORT, () => console.log(`🚀 Listening on ${PORT}`));
+	server.listen(PORT, () => console.log(`🚀 Listening on port ${PORT}`));
 }
 
 start().catch(err => {
