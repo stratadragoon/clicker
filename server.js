@@ -41,51 +41,54 @@ async function start() {
 	const io = new Server(server);
 
 	io.on('connection', socket => {
-		console.log(`🟢 Client connected: ${socket.id}`);
+		console.log(`🟢 Client connected: ${socket.id}`);
 
 		// Send current count on connect
 		coll.findOne({ _id: 'globalClicks' })
 			.then(doc => {
-				console.log(`→ sending initial total ${doc.total} to ${socket.id}`);
+				console.log(`→ sending initial total ${doc.total} to ${socket.id}`);
 				socket.emit('count updated', doc.total);
 			})
 			.catch(err => console.error('Error fetching initial count:', err));
 
 		// Handle click events
 		socket.on('click', async () => {
+			console.log(`🖱️ Click received from ${socket.id}`);
 			try {
-				console.log(`🖱️  Click received from ${socket.id}`);
+				// Atomic increment with upsert; use returnOriginal for broad compatibility
 				const result = await coll.findOneAndUpdate(
-					{ _id: 'globalClicks' },
-					{ $inc: { total: 1 } },
-					{ returnDocument: 'after', upsert: true }
+					{ _id: 'globalClicks' },
+					{ $inc: { total: 1 } },
+					{ upsert: true, returnOriginal: false }
 				);
-				if (!result.value) {
-					console.error('No document returned after update:', result);
+				// Handle driver returning doc directly vs result.value
+				const updatedDoc = result.value || result;
+				if (typeof updatedDoc.total !== 'number') {
+					console.error('Invalid document returned from update:', updatedDoc);
 					return;
 				}
-				const newTotal = result.value.total;
-				console.log(`→ new DB total: ${newTotal}, broadcasting to all`);
+				const newTotal = updatedDoc.total;
+				console.log(`→ new DB total: ${newTotal}, broadcasting to all`);
 				io.emit('count updated', newTotal);
-			} catch (err) {
-				console.error('Click handler error:', err);
+			} catch (err) {
+				console.error('Click handler error:', err);
 			}
 		});
 
 		socket.on('disconnect', () => {
-			console.log(`🔴 Client disconnected: ${socket.id}`);
+			console.log(`🔴 Client disconnected: ${socket.id}`);
 		});
 	});
 
 	// Start the server
-	const PORT = process.env.PORT || 3000;
+	const PORT = process.env.PORT || 3000;
 	server.listen(PORT, () => {
-		console.log(`🚀 Listening on port ${PORT}`);
+		console.log(`🚀 Listening on port ${PORT}`);
 	});
 }
 
 // Launch
 start().catch(err => {
-	console.error('Failed to start server:', err);
+	console.error('Failed to start server:', err);
 	process.exit(1);
 });
