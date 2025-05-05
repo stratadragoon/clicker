@@ -1,42 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8"/>
-	<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-	<title>Multiplayer Boss Fight</title>
-	<style>
-		body {
-			height: 100vh; margin:0;
-			display:flex; flex-direction:column;
-			justify-content:center; align-items:center;
-			background:#f5f5f5;
-			font-family:Arial,sans-serif;
-		}
-		#enemy { cursor:pointer; }
-		#enemyName { margin-top:10px; font-size:1.5rem; font-weight:bold; }
-		#health    { margin-top:5px; font-size:1.25rem; }
-	</style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Multiplayer Boss Fight</title>
+  <style>
+    html, body {
+      height: 100vh; margin:0;
+      display:flex; flex-direction:column;
+      justify-content:center; align-items:center;
+      background:#f5f5f5;
+      font-family:Arial,sans-serif;
+      /* default cursor is our sword */
+      cursor: url('/img/crs-001-a.png') 16 16, auto;
+    }
+    #enemy { cursor: inherit; }
+    #enemyName { margin-top:10px; font-size:1.5rem; font-weight:bold; }
+    #health    { margin-top:5px; font-size:1.25rem; }
+  </style>
 </head>
 <body>
-	<img    id="enemy" src="/img/enemy-001-large.png" alt="Boss">
-	<div   id="enemyName">?</div>
-	<div   id="health">0 / 0 HP</div>
+  <img    id="enemy" src="/img/enemy-001-large.png" alt="Boss">
+  <div   id="enemyName">?</div>
+  <div   id="health">0 / 0 HP</div>
 
-	<script src="/socket.io/socket.io.js"></script>
-	<script>
-		const socket = io();
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket    = io();
+    const enemyEl   = document.getElementById('enemy');
+    const nameEl    = document.getElementById('enemyName');
+    const healthEl  = document.getElementById('health');
 
-		// When we get the shared state, render it
-		socket.on('boss state', ({ name, maxHP, currentHP }) => {
-			document.getElementById('enemyName').textContent = name;
-			document.getElementById('health').textContent    =
-				`${currentHP} / ${maxHP} HP`;
-		});
+    // Weapon images & damage
+    const restCursor   = 'url("/img/crs-001-a.png") 16 16, auto';
+    const attackCursor = 'url("/img/crs-001-b.png") 16 16, auto';
+    const damageAmount = 4;
 
-		// Clicking the image sends a “hit”
-		document.getElementById('enemy').addEventListener('click', () => {
-			socket.emit('hit');
-		});
-	</script>
+    socket.on('boss state', ({ name, maxHP, currentHP }) => {
+      nameEl.textContent   = name;
+      healthEl.textContent = `${currentHP} / ${maxHP} HP`;
+    });
+
+    enemyEl.addEventListener('click', () => {
+      // swap cursor to “attack pose”
+      document.body.style.cursor = attackCursor;
+      setTimeout(() => {
+        document.body.style.cursor = restCursor;
+      }, 150);
+
+      // tell server how much damage we deal
+      socket.emit('hit', damageAmount);
+    });
+
+    // Make sure our default cursor is set
+    document.body.style.cursor = restCursor;
+  </script>
 </body>
 </html>
