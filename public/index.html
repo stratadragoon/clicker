@@ -1,38 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Clicker Game</title>
-  <style>
-    /* …your styles… */
-  </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Clicker Game Prototype</title>
+	<style>
+		/* Full-screen flex container for centering */
+		body {
+			height: 100vh;
+			margin: 0;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			background: #f5f5f5;
+			font-family: Arial, sans-serif;
+		}
+
+		#enemy {
+			cursor: pointer;
+		}
+
+		#enemyName {
+			margin-top: 10px;
+			font-size: 1.5rem;
+			font-weight: bold;
+		}
+
+		#health {
+			margin-top: 5px;
+			font-size: 1.25rem;
+		}
+	</style>
 </head>
 <body>
-  <h1>Clicker Game Prototype</h1>
-  <div id="count">0</div>
-  <button id="clickButton">Click me!</button>
+	<!-- Enemy Image -->
+	<img id="enemy" src="/img/enemy-001-large.png" alt="Slug">
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    console.log('⚡️ Socket.io client loaded');
-    const socket = io();
+	<!-- Enemy Name -->
+	<div id="enemyName">Slug</div>
 
-    socket.on('connect', () => {
-      console.log('✅ Connected with id', socket.id);
-      // Now that our handler is in place, ask for the current count
-      socket.emit('getCount');
-    });
+	<!-- Health Display -->
+	<div id="health">10 / 10 HP</div>
 
-    socket.on('count updated', newCount => {
-      console.log('📨 count updated →', newCount);
-      document.getElementById('count').textContent = newCount;
-    });
+	<script>
+		const maxHealth = 10;
+		let currentHealth = maxHealth;
 
-    document.getElementById('clickButton').addEventListener('click', () => {
-      console.log('🖱️ Emitting click');
-      socket.emit('click');
-    });
-  </script>
+		const healthEl = document.getElementById('health');
+		const enemyEl  = document.getElementById('enemy');
+
+		function updateHealthDisplay() {
+			healthEl.textContent = `${currentHealth} / ${maxHealth} HP`;
+		}
+
+		// Handle clicks on the enemy image
+		enemyEl.addEventListener('click', () => {
+			currentHealth--;
+			if (currentHealth <= 0) {
+				currentHealth = maxHealth;
+			}
+			updateHealthDisplay();
+		});
+
+		// Initialize display
+		updateHealthDisplay();
+	</script>
 </body>
 </html>
