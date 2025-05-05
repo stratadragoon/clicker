@@ -1,50 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Clicker Game Prototype</title>
-	<style>
-		body {
-			font-family: Arial, sans-serif;
-			text-align: center;
-			padding-top: 50px;
-		}
-		#count {
-			font-size: 2rem;
-			margin: 20px;
-		}
-		#clickButton {
-			font-size: 1.5rem;
-			padding: 10px 20px;
-			cursor: pointer;
-		}
-	</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Clicker Game</title>
+  <style>
+    /* …your styles… */
+  </style>
 </head>
 <body>
-	<h1>Clicker Game Prototype</h1>
-	<div id="count">0</div>
-	<button id="clickButton">Click me!</button>
+  <h1>Clicker Game Prototype</h1>
+  <div id="count">0</div>
+  <button id="clickButton">Click me!</button>
 
-	<!-- Load Socket.io client from the same host -->
-	<script src="/socket.io/socket.io.js"></script>
-	<script>
-		console.log('⚡️ Socket.io client loaded');
-		const socket = io();  // connects to current host
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    console.log('⚡️ Socket.io client loaded');
+    const socket = io();
 
-		socket.on('connect', () => {
-			console.log('✅ Connected to server, socket id:', socket.id);
-		});
+    socket.on('connect', () => {
+      console.log('✅ Connected with id', socket.id);
+      // Now that our handler is in place, ask for the current count
+      socket.emit('getCount');
+    });
 
-		socket.on('count updated', (newCount) => {
-			console.log('📨 Received count updated:', newCount);
-			document.getElementById('count').textContent = newCount;
-		});
+    socket.on('count updated', newCount => {
+      console.log('📨 count updated →', newCount);
+      document.getElementById('count').textContent = newCount;
+    });
 
-		document.getElementById('clickButton').addEventListener('click', () => {
-			console.log('🖱️ Emitting click');
-			socket.emit('click');
-		});
-	</script>
+    document.getElementById('clickButton').addEventListener('click', () => {
+      console.log('🖱️ Emitting click');
+      socket.emit('click');
+    });
+  </script>
 </body>
 </html>
