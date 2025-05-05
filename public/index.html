@@ -20,25 +20,25 @@
       cursor: pointer;
     }
   </style>
-  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
   <h1>Clicker Game Prototype</h1>
   <div id="count">0</div>
   <button id="clickButton">Click me!</button>
 
+  <!-- Load Socket.io client from the same host -->
+  <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();            // auto‐connect to server
-    const countEl = document.getElementById('count');
-    const button  = document.getElementById('clickButton');
+    // Connect to the Socket.io server at the current origin
+    const socket = io();
 
-    // When server broadcasts a new count, update the UI
-    socket.on('count updated', newCount => {
-      countEl.textContent = newCount;
+    // Update the counter whenever the server broadcasts a new value
+    socket.on('count updated', (newCount) => {
+      document.getElementById('count').textContent = newCount;
     });
 
-    // When you click, tell the server
-    button.addEventListener('click', () => {
+    // Emit a click event to the server on button press
+    document.getElementById('clickButton').addEventListener('click', () => {
       socket.emit('click');
     });
   </script>
