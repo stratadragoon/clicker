@@ -1,46 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clicker Game Prototype</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding-top: 50px;
-    }
-    #count {
-      font-size: 2rem;
-      margin: 20px;
-    }
-    #clickButton {
-      font-size: 1.5rem;
-      padding: 10px 20px;
-      cursor: pointer;
-    }
-  </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Clicker Game Prototype</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			text-align: center;
+			padding-top: 50px;
+		}
+		#count {
+			font-size: 2rem;
+			margin: 20px;
+		}
+		#clickButton {
+			font-size: 1.5rem;
+			padding: 10px 20px;
+			cursor: pointer;
+		}
+	</style>
 </head>
 <body>
-  <h1>Clicker Game Prototype</h1>
-  <div id="count">0</div>
-  <button id="clickButton">Click me!</button>
+	<h1>Clicker Game Prototype</h1>
+	<div id="count">0</div>
+	<button id="clickButton">Click me!</button>
 
-  <!-- Load Socket.io client from the same host -->
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    // Connect to the Socket.io server at the current origin
-    const socket = io();
+	<!-- Load Socket.io client from the same host -->
+	<script src="/socket.io/socket.io.js"></script>
+	<script>
+		const socket = io();
+		console.log('⚡️ Socket.io client initialized');
 
-    // Update the counter whenever the server broadcasts a new value
-    socket.on('count updated', (newCount) => {
-      document.getElementById('count').textContent = newCount;
-    });
+		socket.on('connect', () => {
+		console.log('✅ Connected to server, socket id:', socket.id);
+		});
 
-    // Emit a click event to the server on button press
-    document.getElementById('clickButton').addEventListener('click', () => {
-      socket.emit('click');
-    });
-  </script>
+		socket.on('count updated', (newCount) => {
+		console.log('📨 Received count updated:', newCount);
+		document.getElementById('count').textContent = newCount;
+		});
+
+		document.getElementById('clickButton').addEventListener('click', () => {
+		console.log('🖱️ Emitting click');
+		socket.emit('click');
+		});
+	</script>
+
 </body>
 </html>
