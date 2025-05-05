@@ -54,7 +54,7 @@ async function start() {
 					stoneSword:  { level: 0, xp: 0 }
 				}
 			};
-			await users.insertOne(user);
+		\await users.insertOne(user);
 		}
 		res.json(user);
 	});
@@ -78,23 +78,27 @@ async function start() {
 		spiderWeb: 12
 	};
 
+	// Weapon exp thresholds
+	const wepConfig = {
+		woodenSword: { exp: [0,20,100,800,4000] },
+		stoneSword:  { exp: [0,40,200,1600,8000] }
+	};
+
 	io.on('connection', socket => {
 		console.log(`🟢 ${socket.id} connected`);
 
-		// Player joins a zone
 		socket.on('joinZone', async ({ userId, zone }) => {
 			socket.data.userId = userId;
-			socket.data.zone = zone;
-			const user = await users.findOne({ _id: userId });
+			socket.data.zone   = zone;
+			const user  = await users.findOne({ _id: userId });
 			if (!user || !user.unlockedZones.includes(zone)) return;
 			socket.join(zone);
 
-			const boss = await bosses.findOne({ _id: zone });
+			const boss  = await bosses.findOne({ _id: zone });
 			socket.emit('boss state', boss);
 			socket.emit('user state', user);
 		});
 
-		// Handle hits & progression
 		socket.on('hit', async ({ userId, zone, damage }) => {
 			damage = parseInt(damage, 10);
 			if (isNaN(damage) || damage < 1) return;
@@ -106,63 +110,12 @@ async function start() {
 			);
 			let boss = await bosses.findOne({ _id: zone });
 
-			// 2) Award XP for damage
-			const user = await users.findOne({ _id: userId });
+			// 2) Award damage XP to clicker
+			const user      = await users.findOne({ _id: userId });
 			const activeWep = user.unlockedWeapons[0];
-			const wepState = user.weapons[activeWep];
-			wepState.xp += damage;
+			user.weapons[activeWep].xp += damage;
 
-			// 3) Check for weapon level-up
-			const config = {
-				woodenSword: { exp: [0,20,100,800,4000] },
-				stoneSword:  { exp: [0,40,200,1600,8000] }
-			};
-			const wepCfg = config[activeWep];
-			while (
-				wepState.level < wepCfg.exp.length &&
-				wepState.xp >= wepCfg.exp[wepState.level]
-			) {
-				wepState.xp -= wepCfg.exp[wepState.level];
-				wepState.level++;
-			}
-
-			// 4) If boss died, reset and award kill XP
-			if (boss.currentHP <= 0) {
-				boss.currentHP = boss.maxHP;
-				await bosses.updateOne(
-					{ _id: zone },
-					{ $set: { currentHP: boss.maxHP } }
-				);
-
-				// Award boss-kill XP to everyone in room
-				const killExp = bossExpMap[zone] || 0;
-				const room = io.sockets.adapter.rooms.get(zone) || new Set();
-				for (const sid of room) {
-					const sock = io.sockets.sockets.get(sid);
-					const uId = sock.data.userId;
-					if (!uId) continue;
-
-					const p = await users.findOne({ _id: uId });
-					const aw = p.unlockedWeapons[0];
-					p.weapons[aw].xp += killExp;
-					// level-up after kill
-					const wcfg = config[aw];
-					while (
-						p.weapons[aw].level < wcfg.exp.length &&
-						p.weapons[aw].xp >= wcfg.exp[p.weapons[aw].level]
-					) {
-						p.weapons[aw].xp -= wcfg.exp[p.weapons[aw].level];
-						p.weapons[aw].level++;
-					}
-					await users.updateOne(
-						{ _id: uId },
-						{ $set: { weapons: p.weapons } }
-					);
-					sock.emit('user state', p);
-				}
-			}
-
-			// 5) Persist user damage XP and possible unlocks
+			// 3) Persist damage XP & unlocks
 			await users.updateOne(
 				{ _id: userId },
 				{ $set: {
@@ -172,8 +125,53 @@ async function start() {
 				}}
 			);
 
-			// 6) Emit updates
-			socket.emit('user state', user);
+			// 4) Check for boss kill
+			let justKilled = false;
+			if (boss.currentHP <= 0) {
+				justKilled = true;
+				boss.currentHP = boss.maxHP;
+				await bosses.updateOne(
+					{ _id: zone },
+					{ $set: { currentHP: boss.maxHP } }
+				);
+			}
+
+			// 5) If killed, award kill XP to all in room
+			if (justKilled) {
+				const killExp = bossExpMap[zone] || 0;
+				const room    = io.sockets.adapter.rooms.get(zone) || new Set();
+				for (const sid of room) {
+					const sock = io.sockets.sockets.get(sid);
+					const uid  = sock.data.userId;
+					if (!uid) continue;
+
+					const p = await users.findOne({ _id: uid });
+					const aw = p.unlockedWeapons[0];
+					p.weapons[aw].xp += killExp;
+
+					// level-up
+					while (
+						p.weapons[aw].level < wepConfig[aw].exp.length &&
+						p.weapons[aw].xp   >= wepConfig[aw].exp[p.weapons[aw].level]
+					) {
+						p.weapons[aw].xp -= wepConfig[aw].exp[p.weapons[aw].level];
+						p.weapons[aw].level++;
+					}
+
+					// persist kill XP
+					await users.updateOne(
+						{ _id: uid },
+						{ $set: { weapons: p.weapons } }
+					);
+					sock.emit('user state', p);
+				}
+			}
+
+			// 6) re-fetch updated clicker user state and emit
+			const updatedUser = await users.findOne({ _id: userId });
+			socket.emit('user state', updatedUser);
+
+			// 7) Broadcast boss state
 			io.to(zone).emit('boss state', boss);
 		});
 
