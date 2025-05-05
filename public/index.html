@@ -1,65 +1,180 @@
+<!-- public/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8"/>
-	<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-	<title>Multiplayer Boss Fight</title>
-	<style>
-		html, body {
-			height: 100vh; margin:0;
-			display:flex; flex-direction:column;
-			justify-content:center; align-items:center;
-			background:#f5f5f5;
-			font-family:Arial,sans-serif;
-			/* default cursor is our sword */
-			cursor: url('/img/crs-001-a.png') 16 16, auto;
-		}
-		#enemy { cursor: inherit; }
-		#enemyName { margin-top:10px; font-size:1.5rem; font-weight:bold; }
-		#health    { margin-top:5px; font-size:1.25rem; }
-	</style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Co‑op Boss Clicker</title>
+  <style>
+    html, body {
+      height:100vh; margin:0;
+      display:flex; flex-direction:column;
+      justify-content:center; align-items:center;
+      font-family:Arial,sans-serif;
+      background:#f5f5f5;
+    }
+    #controls {
+      margin-bottom:20px;
+      display:flex; gap:10px;
+      align-items:center;
+    }
+    select, button {
+      font-size:1rem; padding:5px;
+    }
+    #enemy { cursor:pointer; }
+    #enemyName { margin-top:10px; font-size:1.5rem; font-weight:bold; }
+    #health    { margin-top:5px; font-size:1.25rem; }
+  </style>
 </head>
 <body>
-	<img    id="enemy" src="/img/enemy-001-large.png" alt="Boss">
-	<div   id="enemyName">?</div>
-	<div   id="health">0 / 0 HP</div>
+  <div id="controls">
+    <label>
+      Zone:
+      <select id="zoneSelect"></select>
+    </label>
+    <button id="enterZone">Enter</button>
 
-	<script src="/socket.io/socket.io.js"></script>
-	<script>
-		const socket      = io();
-		const enemyEl     = document.getElementById('enemy');
-		const nameEl      = document.getElementById('enemyName');
-		const healthEl    = document.getElementById('health');
+    <label>
+      Weapon:
+      <select id="wepSelect"></select>
+    </label>
+    <span id="wepInfo"></span>
+  </div>
 
-		// Weapon images & damage
-		const restCursor   = 'url("/img/crs-001-a.png") 16 16, auto';
-		const attackCursor = 'url("/img/crs-001-b.png") 16 16, auto';
-		const damageAmount = 4;
-		const lockoutMs    = 1000;
-		let canAttack      = true;
+  <img id="enemy" src="" alt="Boss">
+  <div id="enemyName">?</div>
+  <div id="health">0 / 0 HP</div>
 
-		socket.on('boss state', ({ name, maxHP, currentHP }) => {
-			nameEl.textContent   = name;
-			healthEl.textContent = `${currentHP} / ${maxHP} HP`;
-		});
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // 1) User identity
+    let userId = localStorage.getItem('userId');
+    if (!userId) {
+      userId = crypto.randomUUID();
+      localStorage.setItem('userId', userId);
+    }
 
-		enemyEl.addEventListener('click', () => {
-			if (!canAttack) return;
-			canAttack = false;
+    const socket     = io();
+    const zoneSelect = document.getElementById('zoneSelect');
+    const enterBtn   = document.getElementById('enterZone');
+    const wepSelect  = document.getElementById('wepSelect');
+    const wepInfo    = document.getElementById('wepInfo');
+    const enemyEl    = document.getElementById('enemy');
+    const nameEl     = document.getElementById('enemyName');
+    const hpEl       = document.getElementById('health');
 
-			// Play attack animation (cursor swap)
-			document.body.style.cursor = attackCursor;
-			socket.emit('hit', damageAmount);
+    // Weapon configuration (must match server)
+    const weaponConfig = {
+      woodenSword: {
+        imgA: '/img/crs-001-a.png',
+        imgB: '/img/crs-001-b.png',
+        exp:   [0,   20,  100,  800, 4000],
+        dmg:   [2,    3,    4,    5,    6],
+        delay:[1000,1000,1000,1000,1000],
+        unlockReq: null
+      },
+      stoneSword: {
+        imgA: '/img/crs-002-a.png',
+        imgB: '/img/crs-002-b.png',
+        exp:   [0,   40,  200, 1600,8000],
+        dmg:   [4,    5,    7,    8,   10],
+        delay:[900, 900,  900,  900, 900],
+        unlockReq: { weapon: 'woodenSword', level: 3 }
+      }
+    };
 
-			// Reset cursor & lockout after specified time
-			setTimeout(() => {
-				document.body.style.cursor = restCursor;
-				canAttack = true;
-			}, lockoutMs);
-		});
+    let userState = null;
+    let currentWep = null;
+    let canAttack = true;
 
-		// Ensure default cursor on load
-		document.body.style.cursor = restCursor;
-	</script>
+    // Fetch or create user
+    fetch(`/api/users/${userId}`)
+      .then(r => r.json())
+      .then(user => {
+        userState = user;
+        rebuildControls();
+        joinZone(user.currentZone);
+      });
+
+    // Build zone & weapon selectors
+    function rebuildControls() {
+      // Zones
+      zoneSelect.innerHTML = '';
+      userState.unlockedZones.forEach(z => {
+        const opt = new Option(z, z);
+        if (z === userState.currentZone) opt.selected = true;
+        zoneSelect.append(opt);
+      });
+
+      // Weapons
+      wepSelect.innerHTML = '';
+      userState.unlockedWeapons.forEach(w => {
+        const lvl = userState.weapons[w].level;
+        const opt = new Option(`${w} (Lv${lvl})`, w);
+        wepSelect.append(opt);
+      });
+      currentWep = wepSelect.value;
+      updateWepInfo();
+    }
+
+    // When Enter Zone clicked
+    enterBtn.addEventListener('click', () => {
+      const z = zoneSelect.value;
+      fetch(`/api/users/${userId}/zone/${z}`, { method: 'POST' })
+        .then(() => {
+          userState.currentZone = z;
+          joinZone(z);
+        });
+    });
+
+    // Weapon selection change
+    wepSelect.addEventListener('change', () => {
+      currentWep = wepSelect.value;
+      updateWepInfo();
+    });
+
+    function updateWepInfo() {
+      const st = userState.weapons[currentWep];
+      const cfg = weaponConfig[currentWep];
+      wepInfo.textContent = 
+        `Lv${st.level} | XP ${st.xp}/${cfg.exp[st.level] || '∞'} | DMG ${cfg.dmg[st.level-1]}`;
+      document.body.style.cursor = `url('${cfg.imgA}') 16 16, auto`;
+    }
+
+    // Join a Socket.io zone room
+    function joinZone(zone) {
+      socket.emit('joinZone', { userId, zone });
+    }
+
+    // Receive boss updates
+    socket.on('boss state', ({ name, maxHP, currentHP, _id }) => {
+      enemyEl.src = `/img/${_id === 'slugZone' ? 'enemy-001-large.png' : 'enemy-002-large.png'}`;
+      nameEl.textContent   = name;
+      hpEl.textContent     = `${currentHP} / ${maxHP} HP`;
+    });
+
+    // Receive user updates (after hit / level-up)
+    socket.on('user state', user => {
+      userState = user;
+      rebuildControls();
+    });
+
+    // Clicking the boss
+    enemyEl.addEventListener('click', () => {
+      if (!canAttack) return;
+      canAttack = false;
+      const cfg = weaponConfig[currentWep];
+      document.body.style.cursor = `url('${cfg.imgB}') 16 16, auto`;
+      socket.emit('hit', {
+        userId,
+        zone: userState.currentZone,
+        damage: cfg.dmg[userState.weapons[currentWep].level - 1]
+      });
+      setTimeout(() => {
+        document.body.style.cursor = `url('${cfg.imgA}') 16 16, auto`;
+        canAttack = true;
+      }, cfg.delay[userState.weapons[currentWep].level - 1]);
+    });
+  </script>
 </body>
 </html>
